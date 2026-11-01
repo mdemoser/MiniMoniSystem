@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Painel de Telemetria</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #0f172a;
+        color: #f8fafc;
+        margin: 0;
+        padding: 40px 20px;
+        display: flex;
+        justify-content: center;
+      }
+      .container {
+        max-width: 600px;
+        width: 100%;
+        background-color: #1e293b;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      }
+      h1 {
+        margin-top: 0;
+        font-size: 24px;
+        color: #38bdf8;
+        border-bottom: 2px solid #334155;
+        padding-bottom: 10px;
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 14px;
+        margin-bottom: 20px;
+      }
+      .OK {
+        background-color: #16a34a;
+        color: white;
+      }
+      .WARNING {
+        background-color: #ca8a04;
+        color: white;
+      }
+      .CRITICAL {
+        background-color: #dc2626;
+        color: white;
+      }
+
+      .metric-card {
+        background-color: #334155;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .alerts-box {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #450a0a;
+        border: 1px solid #991b1b;
+        border-radius: 8px;
+      }
+      .timestamp {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-top: 15px;
+        text-align: right;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>&bull; Telemetria de Servidor</h1>
+
+      <div>
+        Status Geral:
+        <span id="status-badge" class="status-badge">Carregando...</span>
+      </div>
+
+      <div class="metric-card">
+        <span>Uso de Disco:</span>
+        <strong id="disk-val">-</strong>
+      </div>
+
+      <div class="metric-card">
+        <span>Uso de RAM:</span>
+        <strong id="ram-val">-</strong>
+      </div>
+
+      <div class="metric-card">
+        <span>Serviço (<span id="service-name">squid</span>):</span>
+        <strong id="service-val">-</strong>
+      </div>
+
+      <div id="alerts-container" class="alerts-box" style="display: none">
+        <strong style="color: #fca5a5">Alertas Ativos:</strong>
+        <ul
+          id="alerts-list"
+          style="margin: 10px 0 0 0; padding-left: 20px; color: #fecaca"
+        ></ul>
+      </div>
+
+      <div class="timestamp" id="timestamp">--</div>
+    </div>
+
+    <script>
+      // Variável para guardar o estado das MÉTRICAS (sem o timestamp)
+      let currentMetricsHash = "";
+
+      async function loadTelemetry() {
+        try {
+          const uniqueUrl = "status.json?v=" + new Date().getTime();
+          const response = await fetch(uniqueUrl, { cache: "no-store" });
+
+          if (!response.ok) return;
+
+          const data = await response.json();
+
+          // 1. Cria uma cópia sem o timestamp para comparar
+          const metricsOnly = {
+            status: data.status,
+            disk: data.disk_usage,
+            ram: data.ram_usage,
+            service_name: data.service_name,
+            service_status: data.service_status,
+            alerts: data.alerts,
+          };
+
+          const newMetricsHash = JSON.stringify(metricsOnly);
+
+          // 2. Atualiza APENAS o texto do timestamp (operação super leve, não dá flash)
+          if (data.timestamp) {
+            document.getElementById("timestamp").textContent =
+              "Última atualização: " +
+              new Date(data.timestamp).toLocaleString("pt-BR");
+          }
+
+          // 3. SE AS MÉTRICAS NÃO MUDARAM, PARA AQUI!
+          // Não toca no badge, nos números de RAM/Disco e nem na caixa de alertas.
+          if (newMetricsHash === currentMetricsHash) {
+            return;
+          }
+
+          // Se mudou algo real, atualiza a memória e aplica na DOM
+          currentMetricsHash = newMetricsHash;
+
+          // Badge de Status
+          const badge = document.getElementById("status-badge");
+          badge.textContent = data.status;
+          badge.className = "status-badge " + data.status;
+
+          // Métricas
+          document.getElementById("disk-val").textContent =
+            data.disk_usage + "%";
+          document.getElementById("ram-val").textContent = data.ram_usage + "%";
+          document.getElementById("service-name").textContent =
+            data.service_name;
+          document.getElementById("service-val").textContent =
+            data.service_status.toUpperCase();
+
+          // Alertas Box
+          const alertsContainer = document.getElementById("alerts-container");
+          const alertsList = document.getElementById("alerts-list");
+
+          if (data.alerts && data.alerts.length > 0) {
+            alertsList.innerHTML = "";
+            data.alerts.forEach((alert) => {
+              const li = document.createElement("li");
+              li.textContent = alert;
+              alertsList.appendChild(li);
+            });
+            alertsContainer.style.display = "block";
+          } else {
+            alertsContainer.style.display = "none";
+          }
+        } catch (error) {
+          console.error("Erro na leitura do telemetria:", error);
+        }
+      }
+
+      loadTelemetry();
+      setInterval(loadTelemetry, 3000);
+    </script>
+  </body>
+</html>

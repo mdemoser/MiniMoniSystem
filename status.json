@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-09-08T01:48:14Z",
+  "status": "OK",
+  "disk_usage": 67,
+  "ram_usage": 52,
+  "service_name": "squid",
+  "service_status": "active",
+  "alerts": []
+}
